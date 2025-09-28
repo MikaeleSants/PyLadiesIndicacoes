@@ -25,25 +25,67 @@ public class ProfissionalHandler {
                 .body(profissionalRepository.findAll(), Profissional.class);
     }
 
-    public Mono<ServerResponse> buscarPorArea(ServerRequest request)
-    {String area = request.pathVariable("area");
+    public Mono<ServerResponse> buscarPorArea(ServerRequest request) {
+        String area = request.pathVariable("area");
         return ServerResponse.ok()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(profissionalRepository.findByArea(area), Profissional.class);
     }
 
-    public Mono<ServerResponse> buscarPorId(ServerRequest request)
-    {String id = request.pathVariable("id");
+    public Mono<ServerResponse> listarAreas(ServerRequest request) {
+        return profissionalRepository.findAll()
+                .collectList()
+                .map(list ->
+                        list.stream()
+                                .map(Profissional::area)
+                                .distinct()
+                                .toList()
+                )
+                .flatMap(areas ->
+                        ServerResponse.ok()
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .bodyValue(areas)
+                );
+    }
+
+
+    public Mono<ServerResponse> buscarPorId(ServerRequest request) {
+        String id = request.pathVariable("id");
         return profissionalRepository.findById(id)
                 .flatMap(p -> ServerResponse.ok().bodyValue(p))
                 .switchIfEmpty(ServerResponse.notFound().build());
     }
 
-    public Mono<ServerResponse> salvar(ServerRequest request)
-    {
+    public Mono<ServerResponse> salvar(ServerRequest request) {
         return request.bodyToMono(Profissional.class)
-                        .flatMap(profissionalRepository::save)
+                .flatMap(profissionalRepository::save)
                 .flatMap(p -> ServerResponse.ok().bodyValue(p));
+    }
+
+    public Mono<ServerResponse> editar(ServerRequest request) {
+        String idAntigo = request.pathVariable("id");
+
+        return request.bodyToMono(Profissional.class)
+                .flatMap(novosDados ->
+                        profissionalRepository.findById(idAntigo)
+                                .flatMap(existing -> {
+                                    java.util.function.Function<Profissional, Profissional> criarNovoRegistro = p ->
+                                            new Profissional(
+                                                    null,
+                                                    novosDados.nome() != null ? novosDados.nome() : p.nome(),
+                                                    novosDados.area() != null ? novosDados.area() : p.area(),
+                                                    novosDados.contato() != null ? novosDados.contato() : p.contato(),
+                                                    novosDados.camposEspecificos() != null ? novosDados.camposEspecificos() : p.camposEspecificos()
+                                            );
+                                    Profissional novoRegistro = criarNovoRegistro.apply(existing);
+                                    return profissionalRepository.save(novoRegistro)
+                                            .flatMap(saved ->
+                                                    profissionalRepository.deleteById(idAntigo)
+                                                            .then(ServerResponse.ok().bodyValue(saved))
+                                            );
+                                })
+                )
+                .switchIfEmpty(ServerResponse.notFound().build());
     }
 
     public Mono<ServerResponse> deletar(ServerRequest request) {

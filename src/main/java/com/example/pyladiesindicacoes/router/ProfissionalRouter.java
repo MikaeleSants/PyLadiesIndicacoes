@@ -16,7 +16,9 @@ public class ProfissionalRouter {
                 .GET("/profissionais", handler::listar)
                 .GET("/profissionais/area/{area}", handler::buscarPorArea)
                 .GET("/profissionais/{id}", handler::buscarPorId)
+                .GET("/profissionais/area/", handler::listarAreas)
                 .POST("/profissionais", handler::salvar)
+                .PUT("/profissionais/{id}", handler::editar)
                 .DELETE("/profissionais/{id}", handler::deletar)
                 .build();
     }
